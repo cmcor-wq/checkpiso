@@ -1,0 +1,5 @@
+# Dependencias para api/smoke.py (endpoint de validación en Vercel).
+# La fuente de verdad de dependencias del proyecto es pyproject.toml;
+# este archivo solo existe porque el builder Python de Vercel lo requiere.
+httpx>=0.27
+python-dotenv>=1.0

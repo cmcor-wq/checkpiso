@@ -79,6 +79,25 @@ GitHub, etc. Por eso:
   `User-Agent` identificable con contacto real — configúralo en `.env`
   (`NOMINATIM_USER_AGENT`) antes de usarlo en serio.
 
+## Validación en vivo — opción Vercel
+
+`api/smoke.py` es el mismo chequeo que `scripts/smoke_test.py` pero como
+endpoint HTTP, pensado para desplegarlo en Vercel (que sí tiene salida real
+a internet, a diferencia de este sandbox — comprobado, Vercel también está
+bloqueado desde aquí). Es temporal: no forma parte de la arquitectura CLI
+final, solo sirve para validar las fuentes de datos.
+
+```bash
+npm install -g vercel   # o usa npx vercel
+vercel login            # login normal, no compartas tokens en texto plano
+vercel --prod
+```
+
+Cuando termine el deploy, visita `https://<tu-proyecto>.vercel.app/api/smoke`
+y pégame el JSON de vuelta. **Borra el proyecto de Vercel (o al menos este
+endpoint) en cuanto termines de validar** — es público, sin autenticación,
+y solo tiene sentido como herramienta de depuración puntual.
+
 ## Desarrollo
 
 ```bash
