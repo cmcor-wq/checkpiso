@@ -6,18 +6,36 @@ zonas verdes, etc. y genera una puntuación de zona explicada de forma
 narrativa. Ver la especificación completa en el documento original del
 proyecto.
 
-## Estado — Sesión 1 completada
+## Estado — Sesiones 1 y 2 completadas
 
+**Sesión 1** — fuentes de datos base:
 - `pisocheck/models.py` — `AddressData`, `FactorResult`, `ReportData`.
 - `pisocheck/geocoder.py` — dirección → lat/lng/municipio/distrito/barrio (Nominatim).
 - `pisocheck/sources/catastro.py` — Consulta_DNPPP (Sede Catastro OVC, sin auth).
 - `pisocheck/sources/opendata_vlc.py` — quejas/sugerencias por distrito (solo Valencia ciudad).
 - `pisocheck/sources/osm.py` — Overpass: farolas, ocio nocturno, transporte, colegios, farmacias, supermercados, parques, parking.
-- 9 tests con `pytest-httpx` (mocks), usando como ground truth los datos reales de Garbí 24 y Av. Burjassot 71.
 
-Pendiente (sesiones 2-4 del roadmap original): `scoring/`, Google Places,
-PVGIS solar real, generación de informes HTML/PDF, CLI, cache SQLite,
-SNCZI/inundación, NASA Black Marble, mercado inmobiliario.
+**Sesión 2** — motor de puntuación:
+- `pisocheck/scoring/factors.py` — funciones `score_*` para 11 de los 14 factores (ver tabla abajo).
+- `pisocheck/scoring/engine.py` — `build_report(address, raw_data)`: arma el `ReportData` con los factores disponibles, omite los que faltan (no rompe la media).
+- `pisocheck/sources/solar.py` — PVGIS real (horas de sol equivalentes/día).
+- `pisocheck/sources/places.py` — Google Places Nearby Search, con degradación graceful (`None`) si no hay `GOOGLE_PLACES_API_KEY`.
+
+32 tests con `pytest-httpx` (mocks), usando como ground truth los datos reales de Garbí 24 y Av. Burjassot 71.
+
+### Cobertura de los 14 factores ahora mismo
+
+| Factor | Estado |
+|---|---|
+| Ocio nocturno, Transporte, Zona verde, Iluminación, Colegios, Aparcamiento, Comercio, Salud/farmacias | ✅ Fuente OSM + scoring (parcial: sin el matiz de horario/24h que daría Places) |
+| Quejas vecinales | ✅ Solo Valencia ciudad (Open Data VLC); Torrent sin fuente (GIVP no implementado) |
+| Sol y orientación | ✅ PVGIS, orientación sur asumida por defecto |
+| Riesgo inundación | ⚠️ Scoring listo, sin fuente (`sources/inundacion.py`, SNCZI — sesión 4) |
+| Ruido nocturno, Ruido aeronáutico, Limpieza zona | ❌ Sin fuente ni scoring todavía (sesión 4, ver riesgos abajo) |
+
+Pendiente (sesiones 3-4 del roadmap original): generación de informes
+HTML/PDF, CLI (`main.py`), cache SQLite, SNCZI/inundación, NASA Black
+Marble, ruido aeronáutico, mercado inmobiliario.
 
 ## ⚠️ Limitación conocida de este entorno
 
