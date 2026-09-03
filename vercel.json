@@ -1,0 +1,6 @@
+{
+  "functions": {
+    "api/analizar.py": { "maxDuration": 30 },
+    "api/smoke.py": { "maxDuration": 30 }
+  }
+}

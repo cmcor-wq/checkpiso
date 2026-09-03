@@ -107,24 +107,40 @@ GitHub, etc. Por eso:
   `User-Agent` identificable con contacto real — configúralo en `.env`
   (`NOMINATIM_USER_AGENT`) antes de usarlo en serio.
 
-## Validación en vivo — opción Vercel
+## Desplegar en Vercel (validación real + uso sin instalar nada)
 
-`api/smoke.py` es el mismo chequeo que `scripts/smoke_test.py` pero como
-endpoint HTTP, pensado para desplegarlo en Vercel (que sí tiene salida real
-a internet, a diferencia de este sandbox — comprobado, Vercel también está
-bloqueado desde aquí). Es temporal: no forma parte de la arquitectura CLI
-final, solo sirve para validar las fuentes de datos.
+Este sandbox no tiene salida a internet a los dominios que usa PisoCheck
+(comprobado, incluido vercel.com), así que el despliegue lo tiene que
+lanzar quien tenga acceso normal a internet — una vez desplegado, el
+código corre en la infraestructura de Vercel, que sí tiene salida real.
+
+Dos endpoints en `api/`:
+- **`api/analizar.py`** — el análisis real. `GET /api/analizar?direccion=Carrer+del+Garb%C3%AD+24%2C+Torrent`
+  devuelve el informe HTML completo, generado con datos reales. Admite
+  `&vs=` para comparar con una segunda dirección. Esto es tanto la forma
+  de validar el proyecto con red real como una manera de usarlo sin
+  instalar Python en local.
+- **`api/smoke.py`** — diagnóstico (mismo chequeo que `scripts/smoke_test.py`),
+  útil si algo falla en `analizar.py` y hay que ver qué fuente concreta
+  está devolviendo algo inesperado.
 
 ```bash
 npm install -g vercel   # o usa npx vercel
-vercel login            # login normal, no compartas tokens en texto plano
+vercel login            # login normal en el navegador, sin pegar tokens en ningún sitio
 vercel --prod
 ```
 
-Cuando termine el deploy, visita `https://<tu-proyecto>.vercel.app/api/smoke`
-y pégame el JSON de vuelta. **Borra el proyecto de Vercel (o al menos este
-endpoint) en cuanto termines de validar** — es público, sin autenticación,
-y solo tiene sentido como herramienta de depuración puntual.
+Cuando termine el deploy, entra a `https://<tu-proyecto>.vercel.app/api/analizar?direccion=Carrer+del+Garb%C3%AD+24%2C+Torrent`
+— deberías ver el informe. Si algo no cuadra con lo que ya sabemos de esa
+vivienda (§2, ground truth), pégame la URL o el HTML resultante y ajusto
+el parser que esté fallando.
+
+⚠️ Sin caché ni límite de peticiones — cada carga repite todas las
+llamadas a APIs externas, así que puede tardar unos segundos (`maxDuration`
+en `vercel.json` está puesto a 30s; si tu plan de Vercel no lo permite o
+Overpass va lento, puede dar timeout — es esperable en esta fase, no un
+bug del código). Si vas a dejarlo público un tiempo, ten en cuenta que
+cualquiera con la URL puede usarlo y consumir tus cuotas de las APIs.
 
 ## Desarrollo
 
