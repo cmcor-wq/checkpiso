@@ -30,6 +30,15 @@ NASA_EARTHDATA_TOKEN: str | None = os.getenv("NASA_EARTHDATA_TOKEN") or None
 
 NOMINATIM_USER_AGENT: str = _env("NOMINATIM_USER_AGENT", "PisoCheck/0.1")
 
+# User-Agent genérico para el resto de fuentes (Catastro, Overpass, Open
+# Data VLC). Validado en producción: httpx manda por defecto algo tipo
+# "python-httpx/x.x" y varios servicios públicos españoles lo tratan como
+# bot y devuelven 406/500 en vez de la respuesta real — identificarse
+# arregla al menos Overpass (406) y probablemente Catastro (500).
+DEFAULT_USER_AGENT: str = _env(
+    "PISOCHECK_USER_AGENT", "PisoCheck/0.1 (+https://github.com/cmcor-wq/checkpiso)"
+)
+
 CACHE_DIR: Path = Path(_env("CACHE_DIR", ".pisocheck_cache"))
 CACHE_TTL_HOURS: int = int(_env("CACHE_TTL_HOURS", "72"))
 

@@ -17,7 +17,7 @@ from dataclasses import replace
 
 import httpx
 
-from pisocheck.config import HTTP_TIMEOUT_SECONDS
+from pisocheck.config import DEFAULT_USER_AGENT, HTTP_TIMEOUT_SECONDS
 from pisocheck.models import AddressData
 
 CATASTRO_URL = (
@@ -129,7 +129,9 @@ async def consulta_dnp(
     owns_client = client is None
     client = client or httpx.AsyncClient(timeout=HTTP_TIMEOUT_SECONDS)
     try:
-        resp = await client.get(CATASTRO_URL, params=params)
+        resp = await client.get(
+            CATASTRO_URL, params=params, headers={"User-Agent": DEFAULT_USER_AGENT}
+        )
         resp.raise_for_status()
     finally:
         if owns_client:

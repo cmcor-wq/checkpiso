@@ -13,7 +13,7 @@ import re
 
 import httpx
 
-from pisocheck.config import HTTP_TIMEOUT_SECONDS
+from pisocheck.config import DEFAULT_USER_AGENT, HTTP_TIMEOUT_SECONDS
 from pisocheck.utils import haversine_m
 
 OVERPASS_URL = "https://overpass-api.de/api/interpreter"
@@ -71,7 +71,9 @@ async def _run_query(
     owns_client = client is None
     client = client or httpx.AsyncClient(timeout=HTTP_TIMEOUT_SECONDS)
     try:
-        resp = await client.post(OVERPASS_URL, data={"data": query})
+        resp = await client.post(
+            OVERPASS_URL, data={"data": query}, headers={"User-Agent": DEFAULT_USER_AGENT}
+        )
         resp.raise_for_status()
         data = resp.json()
     finally:

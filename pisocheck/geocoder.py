@@ -42,31 +42,58 @@ class GeocodeError(RuntimeError):
     """La dirección no se pudo geocodificar."""
 
 
-async def geocode(raw_address: str, *, client: httpx.AsyncClient | None = None) -> AddressData:
-    """Convierte una dirección en texto libre a AddressData (campos base)."""
+def _simplificar(raw_address: str) -> str | None:
+    """'Carrer del Garbí 24, 2, Torrent' -> 'Carrer del Garbí 24, Torrent'.
+
+    Quita los segmentos intermedios (piso, puerta...) que a veces hacen que
+    Nominatim no encuentre nada aunque la dirección exista — visto en
+    producción: la búsqueda con "2," en medio fallaba, sin el "2" funciona.
+    Devuelve None si no hay nada que simplificar (2 segmentos o menos).
+    """
+    partes = [p.strip() for p in raw_address.split(",") if p.strip()]
+    if len(partes) <= 2:
+        return None
+    return f"{partes[0]}, {partes[-1]}"
+
+
+async def _buscar(query: str, *, client: httpx.AsyncClient) -> dict | None:
     params = {
-        "q": raw_address,
+        "q": query,
         "format": "jsonv2",
         "addressdetails": 1,
         "limit": 1,
         "countrycodes": "es",
     }
-    headers = {"User-Agent": NOMINATIM_USER_AGENT}
+    resp = await client.get(
+        NOMINATIM_URL, params=params, headers={"User-Agent": NOMINATIM_USER_AGENT}
+    )
+    resp.raise_for_status()
+    results = resp.json()
+    return results[0] if results else None
 
+
+async def geocode(raw_address: str, *, client: httpx.AsyncClient | None = None) -> AddressData:
+    """Convierte una dirección en texto libre a AddressData (campos base).
+
+    Si la búsqueda con la dirección completa no encuentra nada, reintenta
+    una vez con una versión simplificada (sin piso/puerta) antes de darse
+    por vencido.
+    """
     owns_client = client is None
     client = client or httpx.AsyncClient(timeout=HTTP_TIMEOUT_SECONDS)
     try:
-        resp = await client.get(NOMINATIM_URL, params=params, headers=headers)
-        resp.raise_for_status()
-        results = resp.json()
+        result = await _buscar(raw_address, client=client)
+        if result is None:
+            simplificada = _simplificar(raw_address)
+            if simplificada:
+                result = await _buscar(simplificada, client=client)
     finally:
         if owns_client:
             await client.aclose()
 
-    if not results:
+    if result is None:
         raise GeocodeError(f"No se encontraron resultados para: {raw_address!r}")
 
-    result = results[0]
     address = result.get("address", {})
 
     municipio = _first_present(address, _MUNICIPIO_KEYS)

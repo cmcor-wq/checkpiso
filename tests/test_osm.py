@@ -33,6 +33,11 @@ async def test_farmacias_ordenadas_por_distancia(httpx_mock):
     assert result[0]["nombre"] == "Farmacia Cercana"
     assert result[0]["distancia_m"] < result[1]["distancia_m"]
 
+    # Overpass devolvía 406 en producción con el User-Agent por defecto de
+    # httpx — nos aseguramos de que siempre mandamos uno identificable.
+    request = httpx_mock.get_requests()[0]
+    assert "PisoCheck" in request.headers.get("user-agent", "")
+
 
 async def test_transporte_combina_metro_y_bus(httpx_mock):
     httpx_mock.add_response(

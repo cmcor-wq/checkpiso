@@ -16,7 +16,7 @@ from datetime import date, timedelta
 
 import httpx
 
-from pisocheck.config import HTTP_TIMEOUT_SECONDS
+from pisocheck.config import DEFAULT_USER_AGENT, HTTP_TIMEOUT_SECONDS
 
 BASE_URL = (
     "https://valencia.opendatasoft.com/api/explore/v2.1/catalog/datasets/"
@@ -63,7 +63,7 @@ async def get_quejas(
     owns_client = client is None
     client = client or httpx.AsyncClient(timeout=HTTP_TIMEOUT_SECONDS)
     try:
-        resp = await client.get(BASE_URL, params=params)
+        resp = await client.get(BASE_URL, params=params, headers={"User-Agent": DEFAULT_USER_AGENT})
         resp.raise_for_status()
         data = resp.json()
     finally:

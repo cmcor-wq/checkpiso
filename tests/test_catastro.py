@@ -57,6 +57,19 @@ async def test_consulta_dnp_garbi24(httpx_mock):
     assert data["anio_construccion"] == GARBI24["anio_construccion"]
 
 
+async def test_consulta_dnp_manda_user_agent_identificable(httpx_mock):
+    # Catastro devolvía 500 en producción con el User-Agent por defecto de
+    # httpx — probablemente lo trataba como bot. Nos aseguramos de que
+    # siempre mandamos uno identificable.
+    httpx_mock.add_response(method="GET", content=GARBI24_DNP_XML)
+
+    await consulta_dnp("VALENCIA", "TORRENT", "GARBI", "24")
+
+    request = httpx_mock.get_requests()[0]
+    assert "python-httpx" not in request.headers.get("user-agent", "")
+    assert "PisoCheck" in request.headers.get("user-agent", "")
+
+
 async def test_consulta_dnp_error(httpx_mock):
     httpx_mock.add_response(method="GET", content=CATASTRO_ERROR_XML)
 
