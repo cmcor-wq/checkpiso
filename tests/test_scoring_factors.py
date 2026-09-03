@@ -5,6 +5,7 @@ from pisocheck.scoring.factors import (
     score_ocio_nocturno,
     score_quejas_vecinales,
     score_riesgo_inundacion,
+    score_ruido_nocturno,
     score_salud_farmacias,
     score_sol_orientacion,
     score_transporte,
@@ -51,6 +52,34 @@ def test_ocio_nocturno_sin_locales_puntua_alto():
     score, desc, _ = score_ocio_nocturno([])
     assert score >= 9.0
     assert "Sin bares" in desc
+
+
+def test_ruido_nocturno_sin_locales_puntua_alto():
+    score, desc, _ = score_ruido_nocturno([])
+    assert score >= 9.0
+    assert "Sin bares" in desc
+
+
+def test_ruido_nocturno_varios_locales_confirmados_tarde_es_alerta():
+    establecimientos = [
+        {"distancia_m": 50, "cierra_tarde": True},
+        {"distancia_m": 80, "cierra_tarde": True},
+    ]
+    score, desc, _ = score_ruido_nocturno(establecimientos)
+    assert score < 4  # alerta
+    assert "2 confirmados con cierre después de las 23:00" in desc
+
+
+def test_ruido_nocturno_horario_desconocido_penaliza_menos_que_confirmado():
+    score_desconocido, _, _ = score_ruido_nocturno([{"distancia_m": 50, "cierra_tarde": None}])
+    score_confirmado, _, _ = score_ruido_nocturno([{"distancia_m": 50, "cierra_tarde": True}])
+    score_temprano, _, _ = score_ruido_nocturno([{"distancia_m": 50, "cierra_tarde": False}])
+    assert score_temprano > score_desconocido > score_confirmado
+
+
+def test_ruido_nocturno_ignora_locales_a_mas_de_300m():
+    score, _, _ = score_ruido_nocturno([{"distancia_m": 400, "cierra_tarde": True}])
+    assert score >= 9.0
 
 
 def test_transporte_sin_metro_cercano_puntua_bajo():

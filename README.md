@@ -16,23 +16,25 @@ proyecto.
 - `pisocheck/sources/osm.py` — Overpass: farolas, ocio nocturno, transporte, colegios, farmacias, supermercados, parques, parking.
 
 **Sesión 2** — motor de puntuación:
-- `pisocheck/scoring/factors.py` — funciones `score_*` para 12 de los 14 factores (ver tabla abajo).
+- `pisocheck/scoring/factors.py` — funciones `score_*` para 13 de los 14 factores (ver tabla abajo).
 - `pisocheck/scoring/engine.py` — `build_report(address, raw_data)`: arma el `ReportData` con los factores disponibles, omite los que faltan (no rompe la media).
 - `pisocheck/sources/solar.py` — PVGIS real (horas de sol equivalentes/día).
 - `pisocheck/sources/places.py` — Google Places Nearby Search, con degradación graceful (`None`) si no hay `GOOGLE_PLACES_API_KEY`.
+- `pisocheck/sources/osm.py::ocio_tardio` — bares/pubs/restaurantes con `cierra_tarde` (True/False/None) inferido del tag OSM `opening_hours`, usado como proxy de ruido nocturno.
 
-34 tests con `pytest-httpx` (mocks), usando como ground truth los datos reales de Garbí 24 y Av. Burjassot 71.
+45 tests con `pytest-httpx` (mocks), usando como ground truth los datos reales de Garbí 24 y Av. Burjassot 71.
 
 ### Cobertura de los 14 factores ahora mismo
 
 | Factor | Estado |
 |---|---|
 | Ocio nocturno, Transporte, Zona verde, Iluminación, Colegios, Aparcamiento, Comercio, Salud/farmacias | ✅ Fuente OSM + scoring (parcial: sin el matiz de horario/24h que daría Places) |
+| Ruido nocturno | ✅ Proxy: locales de ocio/restauración cercanos con cierre tras las 23:00 (heurística sobre `opening_hours` de OSM, no un mapa de ruido oficial) |
 | Quejas vecinales | ✅ Solo Valencia ciudad (Open Data VLC); Torrent sin fuente (GIVP no implementado) |
 | Limpieza zona | ✅ Proxy (no medición directa): volumen de quejas de limpieza/residuos en Open Data VLC — solo Valencia ciudad |
 | Sol y orientación | ✅ PVGIS, orientación sur asumida por defecto |
 | Riesgo inundación | ⚠️ Scoring listo, sin fuente (`sources/inundacion.py`, SNCZI — sesión 4) |
-| Ruido nocturno, Ruido aeronáutico | ❌ Sin fuente ni scoring todavía (sesión 4, ver riesgos abajo) |
+| Ruido aeronáutico | ❌ Sin fuente ni scoring todavía (sesión 4, ver riesgos abajo) |
 
 Pendiente (sesiones 3-4 del roadmap original): generación de informes
 HTML/PDF, CLI (`main.py`), cache SQLite, SNCZI/inundación, NASA Black

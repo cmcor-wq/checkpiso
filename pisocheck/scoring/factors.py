@@ -14,6 +14,10 @@ lógica de negocio.
   "24h", etc.) — cuando haya API key de Places, estas funciones deberían
   enriquecerse con esos matices en vez de sustituirse.
 - `iluminacion` no incluye NASA Black Marble todavía (Sesión 4).
+- `ruido_nocturno` no usa un mapa de ruido oficial (Lnight, sin fuente
+  pública accesible) — es un proxy: locales de ocio/restauración cercanos
+  con horario de cierre tardío (según el tag OSM `opening_hours`, parseado
+  con una heurística simple, no un parser completo de esa sintaxis).
 - `limpieza_zona` no mide limpieza real (no existe esa fuente pública) — es
   un proxy inferido del volumen de quejas de "limpieza vía pública" y
   "residuos" en Open Data Valencia. Es una correlación razonable (mucha
@@ -79,7 +83,45 @@ def score_ocio_nocturno(establecimientos: list[dict]) -> tuple[float, str, dict]
 
 
 # ---------------------------------------------------------------------------
-# 3. Transporte (spec §9, literal, "metro" incluye subway+light_rail de OSM)
+# 3. Ruido nocturno — proxy: osm.ocio_tardio() (sin mapa Lnight oficial).
+# Distinto de `ocio_nocturno`: aquí también cuentan los restaurantes, y el
+# peso depende de si el local cierra tarde (>=23:00), no solo de la
+# distancia. `cierra_tarde=None` (horario no encontrado/no interpretable)
+# penaliza menos que un cierre tardío confirmado, pero más que uno confirmado
+# temprano — es duda razonable, no ausencia de riesgo.
+# ---------------------------------------------------------------------------
+def score_ruido_nocturno(establecimientos: list[dict]) -> tuple[float, str, dict]:
+    penalty = 0.0
+    cercanos = 0
+    confirmados_tarde = 0
+    for est in establecimientos:
+        d = est["distancia_m"]
+        if d > 300:
+            continue
+        cercanos += 1
+        cierra_tarde = est.get("cierra_tarde")
+        if cierra_tarde is True:
+            confirmados_tarde += 1
+            peso = 3.5 if d < 100 else 2.0
+        elif cierra_tarde is None:
+            peso = 1.5 if d < 100 else 0.8
+        else:
+            peso = 0.3
+        penalty += peso
+    score = max(1.0, round(10.0 - penalty, 1))
+    if cercanos == 0:
+        desc = "Sin bares, pubs ni restaurantes en 300m."
+    else:
+        desc = (
+            f"{cercanos} locales de ocio/restauración en 300m, "
+            f"{confirmados_tarde} confirmados con cierre después de las 23:00 "
+            "(horario de OpenStreetMap, aproximado)."
+        )
+    return score, desc, {"establecimientos": establecimientos[:10]}
+
+
+# ---------------------------------------------------------------------------
+# 4. Transporte (spec §9, literal, "metro" incluye subway+light_rail de OSM)
 # ---------------------------------------------------------------------------
 def score_transporte(paradas: list[dict]) -> tuple[float, str, dict]:
     metro_mas_cercano = min(
@@ -285,6 +327,7 @@ def score_sol_orientacion(solar_data: dict) -> tuple[float, str, dict]:
 FACTOR_FUENTES: dict[str, str] = {
     "riesgo_inundacion": "SNCZI + CHJ",
     "ocio_nocturno": "OpenStreetMap (Overpass)",
+    "ruido_nocturno": "OpenStreetMap (Overpass) — proxy: locales que cierran tarde, sin mapa Lnight oficial",
     "transporte": "OpenStreetMap (Overpass)",
     "zona_verde": "OpenStreetMap (Overpass)",
     "iluminacion": "OpenStreetMap (Overpass) — parcial, sin NASA Black Marble",
@@ -300,6 +343,7 @@ FACTOR_FUENTES: dict[str, str] = {
 FACTOR_SCORERS = {
     "riesgo_inundacion": score_riesgo_inundacion,
     "ocio_nocturno": score_ocio_nocturno,
+    "ruido_nocturno": score_ruido_nocturno,
     "transporte": score_transporte,
     "zona_verde": score_zona_verde,
     "iluminacion": score_iluminacion,
