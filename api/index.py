@@ -47,7 +47,70 @@ _ERROR_PAGE = """<!doctype html>
 Ejemplo: <code>/api/index?direccion=Carrer+del+Garb%C3%AD+24%2C+Torrent</code><br>
 Diagnóstico: <code>/api/index?modo=smoke</code>
 </p>
+<p><a href="?">← Volver al formulario</a></p>
 </body></html>"""
+
+# Página de inicio: se sirve cuando se visita la función sin parámetros.
+# El <form method="GET" action=""> envía a la misma URL desde la que se
+# sirvió esta página (funcione en "/" o en "/api/index"), así que no hay
+# que acertar ninguna ruta a mano ni depender de que Vercel enrute un
+# archivo estático aparte junto a la función.
+_HOME_PAGE = """<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PisoCheck</title>
+<style>
+  :root { --bg:#f8fafc; --card:#ffffff; --border:#e2e8f0; --text:#0f172a; --muted:#64748b; --accent:#16a34a; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--text); font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif; }
+  .wrap { max-width: 560px; margin: 0 auto; padding: 60px 20px; }
+  h1 { font-size: 1.8rem; margin: 0 0 6px; }
+  p.tagline { color: var(--muted); margin: 0 0 32px; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 24px; }
+  label { display:block; font-size:0.85rem; font-weight:600; margin-bottom:6px; }
+  input[type=text] {
+    width:100%; padding:12px 14px; border:1px solid var(--border); border-radius:10px;
+    font-size:1rem; margin-bottom:16px;
+  }
+  input[type=text]:focus { outline:2px solid var(--accent); border-color:var(--accent); }
+  button {
+    width:100%; padding:13px; border:none; border-radius:10px; background:var(--accent);
+    color:white; font-size:1rem; font-weight:600; cursor:pointer;
+  }
+  button:hover { opacity:0.92; }
+  .ejemplos { margin-top:18px; font-size:0.85rem; color:var(--muted); }
+  .ejemplos a { color:var(--text); text-decoration:none; border-bottom:1px dotted var(--muted); }
+  .aviso { margin-top:24px; font-size:0.8rem; color:var(--muted); }
+  .aviso a { color:var(--muted); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>PisoCheck</h1>
+  <p class="tagline">Análisis de zona para comprar o alquilar, con datos públicos.</p>
+  <div class="card">
+    <form method="GET" action="">
+      <label for="direccion">Dirección</label>
+      <input type="text" id="direccion" name="direccion" placeholder="Carrer del Garbí 24, Torrent" required>
+      <label for="vs">Comparar con (opcional)</label>
+      <input type="text" id="vs" name="vs" placeholder="Otra dirección">
+      <button type="submit">Analizar</button>
+    </form>
+    <div class="ejemplos">
+      Prueba con:
+      <a href="?direccion=Carrer+del+Garb%C3%AD+24%2C+Torrent">Carrer del Garbí 24, Torrent</a> ·
+      <a href="?direccion=Av.+de+Burjassot+71%2C+Valencia">Av. de Burjassot 71, Valencia</a>
+    </div>
+  </div>
+  <p class="aviso">
+    Tarda unos segundos (consulta varias fuentes públicas en directo).
+    · <a href="?modo=smoke">Diagnóstico</a>
+  </p>
+</div>
+</body>
+</html>"""
 
 # --- modo "analizar" -------------------------------------------------------
 
@@ -185,14 +248,7 @@ class handler(BaseHTTPRequestHandler):
 
         direccion = (query.get("direccion") or [None])[0]
         if not direccion:
-            self._responder_html(
-                400,
-                _ERROR_PAGE.format(
-                    titulo="Falta el parámetro 'direccion'",
-                    mensaje="Añade ?direccion=... a la URL con la dirección a analizar "
-                    "(o usa ?modo=smoke para el diagnóstico).",
-                ),
-            )
+            self._responder_html(200, _HOME_PAGE)
             return
 
         direccion_vs = (query.get("vs") or [None])[0]

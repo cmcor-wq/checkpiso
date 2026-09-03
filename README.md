@@ -116,15 +116,17 @@ código corre en la infraestructura de Vercel, que sí tiene salida real.
 
 Un único punto de entrada, **`api/index.py`** — Vercel exige exactamente
 uno por proyecto en cuanto detecta `pyproject.toml` en la raíz (ver
-`[tool.vercel]` ahí dentro), así que el análisis real y el diagnóstico
-comparten el mismo `handler`, distinguidos por `?modo=`:
+`[tool.vercel]` ahí dentro). Ese mismo archivo hace de front y de back:
 
-- `GET /api/index?direccion=Carrer+del+Garb%C3%AD+24%2C+Torrent` — el
-  análisis real: pipeline completo, informe HTML con datos reales.
-  Admite `&vs=Otra+direccion` para comparar dos pisos.
+- **`GET /` (o `/api/index`, sin parámetros)** — formulario: escribes la
+  dirección (y opcionalmente una segunda para comparar) y le das a
+  "Analizar". Esta es la forma normal de usarlo, sin tocar URLs a mano.
+- `GET /api/index?direccion=...&vs=...` — a donde te lleva el formulario:
+  el análisis real, pipeline completo, informe HTML con datos reales.
 - `GET /api/index?modo=smoke` — diagnóstico (JSON): geocoder/catastro/osm/
   opendata_vlc contra Garbí 24 y Burjassot 71, comparado con el ground
-  truth conocido. Útil si el modo normal da un error raro.
+  truth conocido. Enlazado desde el propio formulario; útil si el modo
+  normal da un error raro.
 
 ```bash
 npm install -g vercel   # o usa npx vercel
@@ -132,10 +134,10 @@ vercel login            # login normal en el navegador, sin pegar tokens en ning
 vercel --prod
 ```
 
-Cuando termine el deploy, entra a `https://<tu-proyecto>.vercel.app/api/index?direccion=Carrer+del+Garb%C3%AD+24%2C+Torrent`
-— deberías ver el informe. Si algo no cuadra con lo que ya sabemos de esa
-vivienda (§2, ground truth), pégame la URL o el HTML resultante y ajusto
-el parser que esté fallando.
+Cuando termine el deploy, entra a `https://<tu-proyecto>.vercel.app/`
+— deberías ver el formulario. Si algo no cuadra con lo que ya sabemos de
+Garbí 24 o Burjassot 71 (§2, ground truth), pégame la URL o el HTML
+resultante y ajusto el parser que esté fallando.
 
 ⚠️ Sin caché ni límite de peticiones — cada carga repite todas las
 llamadas a APIs externas, así que puede tardar unos segundos (`maxDuration`
