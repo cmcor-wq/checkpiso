@@ -14,6 +14,12 @@ lógica de negocio.
   "24h", etc.) — cuando haya API key de Places, estas funciones deberían
   enriquecerse con esos matices en vez de sustituirse.
 - `iluminacion` no incluye NASA Black Marble todavía (Sesión 4).
+- `limpieza_zona` no mide limpieza real (no existe esa fuente pública) — es
+  un proxy inferido del volumen de quejas de "limpieza vía pública" y
+  "residuos" en Open Data Valencia. Es una correlación razonable (mucha
+  queja de basuras → probablemente recogida/reciclaje deficientes), no una
+  medición directa. Igual que `quejas_vecinales`, solo cubre Valencia
+  ciudad — Torrent se queda sin este factor hasta tener GIVP.
 - Los umbrales de distancia/conteo son estimaciones razonables, no vienen
   de la spec (que solo da los extremos 0 y 10 de cada factor) — hay que
   contrastarlos con los dos pisos de referencia en cuanto haya datos reales.
@@ -226,7 +232,36 @@ def score_quejas_vecinales(quejas: dict) -> tuple[float, str, dict]:
 
 
 # ---------------------------------------------------------------------------
-# 11. Sol y orientación — datos: sources.solar.get_solar_data()
+# 12. Limpieza de zona — proxy: opendata_vlc.get_quejas(materias=MATERIAS_LIMPIEZA)
+# (solo Valencia ciudad). No medimos limpieza directamente (no hay fuente
+# pública de eso) — usamos el volumen de quejas de "limpieza vía pública" y
+# "residuos" como indicador indirecto: si hay muchas, es razonable asumir
+# que la recogida/reciclaje no está funcionando bien en la zona. Es una
+# inferencia, no una medición, y debería quedar claro en el informe.
+# ---------------------------------------------------------------------------
+def score_limpieza_zona(quejas_limpieza: dict) -> tuple[float, str, dict]:
+    total = quejas_limpieza["total"]
+    if total == 0:
+        score = 9.0
+    elif total <= 3:
+        score = 7.0
+    elif total <= 8:
+        score = 5.0
+    elif total <= 15:
+        score = 3.0
+    else:
+        score = 1.5
+    distrito = quejas_limpieza.get("distrito", "el distrito")
+    descripcion = (
+        f"{total} quejas de limpieza viaria/residuos en {distrito} en los últimos 12 "
+        "meses. Es un indicador indirecto (no una medición de limpieza real): un "
+        "volumen alto sugiere que la recogida o el reciclaje no funcionan bien en la zona."
+    )
+    return (score, descripcion, {"breakdown": quejas_limpieza.get("breakdown", {})})
+
+
+# ---------------------------------------------------------------------------
+# 13. Sol y orientación — datos: sources.solar.get_solar_data()
 # ---------------------------------------------------------------------------
 def score_sol_orientacion(solar_data: dict) -> tuple[float, str, dict]:
     horas = solar_data["horas_sol_dia"]
@@ -258,6 +293,7 @@ FACTOR_FUENTES: dict[str, str] = {
     "comercio": "OpenStreetMap (Overpass)",
     "salud_farmacias": "OpenStreetMap (Overpass)",
     "quejas_vecinales": "Open Data Valencia",
+    "limpieza_zona": "Open Data Valencia (proxy: quejas de limpieza/residuos)",
     "sol_orientacion": "PVGIS · EU JRC",
 }
 
@@ -272,5 +308,6 @@ FACTOR_SCORERS = {
     "comercio": score_comercio,
     "salud_farmacias": score_salud_farmacias,
     "quejas_vecinales": score_quejas_vecinales,
+    "limpieza_zona": score_limpieza_zona,
     "sol_orientacion": score_sol_orientacion,
 }

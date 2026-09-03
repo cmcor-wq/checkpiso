@@ -1,6 +1,7 @@
 from pisocheck.scoring.factors import (
     label_from_score,
     score_colegios,
+    score_limpieza_zona,
     score_ocio_nocturno,
     score_quejas_vecinales,
     score_riesgo_inundacion,
@@ -74,6 +75,19 @@ def test_quejas_vecinales_campanar_referencia():
     )
     assert 5.0 <= score <= 7.0
     assert "CAMPANAR" in desc
+
+
+def test_limpieza_zona_muchas_quejas_de_basura_puntua_bajo():
+    score, desc, _ = score_limpieza_zona(
+        {"total": 20, "distrito": "CAMPANAR", "breakdown": {"RESIDUOS": 12, "LIMPIEZA VIA PUBLICA": 8}}
+    )
+    assert score < 4  # alerta
+    assert "indicador indirecto" in desc
+
+
+def test_limpieza_zona_sin_quejas_puntua_bien():
+    score, _, _ = score_limpieza_zona({"total": 0, "distrito": "CAMPANAR", "breakdown": {}})
+    assert score >= 8.0
 
 
 def test_sol_orientacion_burjassot71_referencia():
