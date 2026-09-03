@@ -1,6 +1,6 @@
 [project]
 name = "pisocheck"
-version = "0.1.0"
+version = "0.1.1"
 description = "Análisis automatizado de viviendas con datos públicos"
 requires-python = ">=3.11"
 
