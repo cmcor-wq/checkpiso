@@ -6,7 +6,7 @@ zonas verdes, etc. y genera una puntuación de zona explicada de forma
 narrativa. Ver la especificación completa en el documento original del
 proyecto.
 
-## Estado — Sesiones 1 y 2 completadas
+## Estado — Sesiones 1, 2 y 3 completadas
 
 **Sesión 1** — fuentes de datos base:
 - `pisocheck/models.py` — `AddressData`, `FactorResult`, `ReportData`.
@@ -22,7 +22,14 @@ proyecto.
 - `pisocheck/sources/places.py` — Google Places Nearby Search, con degradación graceful (`None`) si no hay `GOOGLE_PLACES_API_KEY`.
 - `pisocheck/sources/osm.py::ocio_tardio` — bares/pubs/restaurantes con `cierra_tarde` (True/False/None) inferido del tag OSM `opening_hours`, usado como proxy de ruido nocturno.
 
-45 tests con `pytest-httpx` (mocks), usando como ground truth los datos reales de Garbí 24 y Av. Burjassot 71.
+**Sesión 3** — CLI y generación de informe (sin PDF, no hacía falta):
+- `pisocheck/main.py` — orquestación completa: geocoder → catastro → todas las fuentes en paralelo (`asyncio.gather`) → `scoring.engine` → HTML. Cada fuente que falla se omite sin tumbar el análisis. Comando: `pisocheck "Carrer del Garbí 24, 2, Torrent"` (o `python -m pisocheck.main "..."`).
+- `pisocheck/address_parsing.py` — extrae calle/número del texto libre para poder llamar a Catastro automáticamente (probado exacto contra Garbí 24 y Burjassot 71).
+- `pisocheck/reports/html_report.py` + `templates/informe.html.j2` — informe HTML autocontenido (sin CSS/JS externos, se abre directo en el navegador): puntuación global, alertas, catastro, grid de factores con barras, comparativa opcional (`--vs`), factores pendientes listados aparte.
+
+54 tests con `pytest-httpx` (mocks), incluyendo un test de integración que
+corre el pipeline completo de principio a fin. Ground truth: los datos
+reales de Garbí 24 y Av. Burjassot 71.
 
 ### Cobertura de los 14 factores ahora mismo
 
@@ -36,9 +43,9 @@ proyecto.
 | Riesgo inundación | ⚠️ Scoring listo, sin fuente (`sources/inundacion.py`, SNCZI — sesión 4) |
 | Ruido aeronáutico | ❌ Sin fuente ni scoring todavía (sesión 4, ver riesgos abajo) |
 
-Pendiente (sesiones 3-4 del roadmap original): generación de informes
-HTML/PDF, CLI (`main.py`), cache SQLite, SNCZI/inundación, NASA Black
-Marble, ruido aeronáutico, mercado inmobiliario.
+Pendiente: PDF (fuera de alcance por ahora, no se necesita), cache SQLite
+(cada análisis vuelve a llamar a todas las fuentes), SNCZI/inundación,
+NASA Black Marble, ruido aeronáutico, mercado inmobiliario.
 
 ## ⚠️ Limitación conocida de este entorno
 

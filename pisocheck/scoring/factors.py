@@ -324,6 +324,23 @@ def score_sol_orientacion(solar_data: dict) -> tuple[float, str, dict]:
     )
 
 
+FACTOR_NOMBRES: dict[str, str] = {
+    "riesgo_inundacion": "Riesgo de inundación",
+    "ocio_nocturno": "Ocio nocturno",
+    "ruido_nocturno": "Ruido nocturno",
+    "ruido_aereo": "Ruido aeronáutico",
+    "transporte": "Transporte",
+    "zona_verde": "Zona verde",
+    "iluminacion": "Iluminación",
+    "colegios": "Colegios",
+    "aparcamiento": "Aparcamiento",
+    "comercio": "Comercio",
+    "salud_farmacias": "Salud y farmacias",
+    "quejas_vecinales": "Quejas vecinales",
+    "limpieza_zona": "Limpieza de zona",
+    "sol_orientacion": "Sol y orientación",
+}
+
 FACTOR_FUENTES: dict[str, str] = {
     "riesgo_inundacion": "SNCZI + CHJ",
     "ocio_nocturno": "OpenStreetMap (Overpass)",

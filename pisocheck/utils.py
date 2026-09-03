@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import re
+import unicodedata
 from math import asin, cos, radians, sin, sqrt
 
 EARTH_RADIUS_M = 6_371_000
@@ -14,3 +16,17 @@ def haversine_m(lat1: float, lng1: float, lat2: float, lng2: float) -> float:
     dlng = lng2_r - lng1_r
     a = sin(dlat / 2) ** 2 + cos(lat1_r) * cos(lat2_r) * sin(dlng / 2) ** 2
     return 2 * EARTH_RADIUS_M * asin(sqrt(a))
+
+
+def quitar_acentos(texto: str) -> str:
+    """'Garbí' -> 'Garbi'. Útil para parámetros de APIs que esperan ASCII."""
+    return "".join(
+        c for c in unicodedata.normalize("NFD", texto) if unicodedata.category(c) != "Mn"
+    )
+
+
+def slugify(texto: str) -> str:
+    """'Carrer del Garbí 24, Torrent' -> 'carrer-del-garbi-24-torrent'."""
+    texto = quitar_acentos(texto).lower()
+    texto = re.sub(r"[^a-z0-9]+", "-", texto).strip("-")
+    return texto or "vivienda"

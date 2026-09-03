@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PisoCheck — {{ report.address.raw }}</title>
+<style>
+  :root {
+    color-scheme: light;
+    --bg: #f8fafc;
+    --card: #ffffff;
+    --border: #e2e8f0;
+    --text: #0f172a;
+    --muted: #64748b;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    line-height: 1.5;
+  }
+  .wrap { max-width: 960px; margin: 0 auto; padding: 24px 20px 60px; }
+
+  .header {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 28px;
+    display: flex;
+    gap: 24px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  .header-info { flex: 1; min-width: 240px; }
+  .header h1 { margin: 0 0 4px; font-size: 1.4rem; }
+  .header .muni { color: var(--muted); margin: 0 0 12px; }
+  .header .meta { color: var(--muted); font-size: 0.85rem; }
+
+  .score-badge {
+    width: 110px; height: 110px; border-radius: 50%;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    color: white; flex-shrink: 0;
+  }
+  .score-badge .num { font-size: 2rem; font-weight: 700; line-height: 1; }
+  .score-badge .den { font-size: 0.75rem; opacity: 0.85; }
+
+  h2 { font-size: 1.05rem; margin: 32px 0 12px; }
+
+  .alertas { display: flex; flex-direction: column; gap: 10px; }
+  .alerta-card {
+    background: #fef2f2; border: 1px solid #fecaca; border-left: 4px solid #dc2626;
+    border-radius: 10px; padding: 12px 16px;
+  }
+  .alerta-card .titulo { font-weight: 600; }
+  .alerta-card .desc { color: #7f1d1d; font-size: 0.9rem; margin-top: 2px; }
+
+  .catastro-grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 12px; background: var(--card); border: 1px solid var(--border);
+    border-radius: 12px; padding: 16px;
+  }
+  .catastro-grid .item .label { color: var(--muted); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.03em; }
+  .catastro-grid .item .value { font-size: 1rem; font-weight: 600; }
+
+  .factores-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; }
+  .factor-card {
+    background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 16px;
+  }
+  .factor-card .row1 { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+  .factor-card .nombre { font-weight: 600; }
+  .factor-card .score-num { font-weight: 700; }
+  .factor-card .label { font-size: 0.75rem; color: var(--muted); margin-bottom: 8px; }
+  .bar-track { background: #eef2f7; border-radius: 6px; height: 8px; overflow: hidden; margin: 6px 0 10px; }
+  .bar-fill { height: 100%; border-radius: 6px; }
+  .factor-card .desc { font-size: 0.87rem; color: #334155; }
+  .factor-card .fuente { font-size: 0.72rem; color: var(--muted); margin-top: 8px; }
+
+  .pendientes {
+    background: #f1f5f9; border: 1px dashed #cbd5e1; border-radius: 10px;
+    padding: 12px 16px; font-size: 0.85rem; color: var(--muted);
+  }
+
+  .comparacion-table { width: 100%; border-collapse: collapse; background: var(--card); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+  .comparacion-table th, .comparacion-table td { padding: 10px 14px; text-align: left; border-bottom: 1px solid var(--border); font-size: 0.9rem; }
+  .comparacion-table th { background: #f1f5f9; }
+
+  footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid var(--border); color: var(--muted); font-size: 0.8rem; }
+  footer .fuentes { margin-top: 6px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="header">
+    <div class="score-badge" style="background: {{ color_para_score(report.score_global) }};">
+      <span class="num">{{ "%.1f"|format(report.score_global) }}</span>
+      <span class="den">/ 10</span>
+    </div>
+    <div class="header-info">
+      <h1>{{ report.address.raw }}</h1>
+      <p class="muni">
+        {{ report.address.municipio }}{% if report.address.distrito %} · {{ report.address.distrito }}{% endif %}{% if report.address.barrio %} · {{ report.address.barrio }}{% endif %}
+      </p>
+      <p class="meta">
+        Generado el {{ report.generado_en.strftime("%d/%m/%Y %H:%M") }} · PisoCheck v{{ report.version }}
+        · {{ report.factores|length }} de {{ factor_nombres|length }} factores disponibles
+      </p>
+    </div>
+  </div>
+
+  {% if report.alertas %}
+  <h2>⚠ Alertas ({{ report.alertas|length }})</h2>
+  <div class="alertas">
+    {% for f in report.alertas %}
+    <div class="alerta-card">
+      <div class="titulo">{{ factor_nombres.get(f.factor_id, f.factor_id) }} — {{ "%.1f"|format(f.score) }}/10 ({{ f.label }})</div>
+      <div class="desc">{{ f.descripcion }}</div>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  {% if report.address.ref_catastral or report.address.superficie_construida or report.address.anio_construccion %}
+  <h2>Catastro</h2>
+  <div class="catastro-grid">
+    {% if report.address.ref_catastral %}<div class="item"><div class="label">Ref. catastral</div><div class="value">{{ report.address.ref_catastral }}</div></div>{% endif %}
+    {% if report.address.superficie_construida %}<div class="item"><div class="label">Sup. construida</div><div class="value">{{ report.address.superficie_construida|round|int }} m²</div></div>{% endif %}
+    {% if report.address.superficie_habitable %}<div class="item"><div class="label">Sup. habitable</div><div class="value">{{ report.address.superficie_habitable|round|int }} m²</div></div>{% endif %}
+    {% if report.address.anio_construccion %}<div class="item"><div class="label">Año</div><div class="value">{{ report.address.anio_construccion }}</div></div>{% endif %}
+    {% if report.address.habitaciones %}<div class="item"><div class="label">Habitaciones</div><div class="value">{{ report.address.habitaciones }}</div></div>{% endif %}
+    {% if report.address.plantas_edificio %}<div class="item"><div class="label">Plantas edificio</div><div class="value">{{ report.address.plantas_edificio }}</div></div>{% endif %}
+  </div>
+  {% endif %}
+
+  <h2>Factores de zona</h2>
+  <div class="factores-grid">
+    {% for f in factores %}
+    <div class="factor-card">
+      <div class="row1">
+        <span class="nombre">{{ factor_nombres.get(f.factor_id, f.factor_id) }}</span>
+        <span class="score-num" style="color: {{ color_para_score(f.score) }};">{{ "%.1f"|format(f.score) }}</span>
+      </div>
+      <div class="label">{{ f.label }}</div>
+      <div class="bar-track"><div class="bar-fill" style="width: {{ (f.score * 10)|round|int }}%; background: {{ color_para_score(f.score) }};"></div></div>
+      <div class="desc">{{ f.descripcion }}</div>
+      <div class="fuente">Fuente: {{ f.fuente }}</div>
+    </div>
+    {% endfor %}
+  </div>
+
+  {% if factores_pendientes %}
+  <div class="pendientes" style="margin-top:16px;">
+    Sin datos todavía para: {{ factores_pendientes|join(", ") }}. No cuentan en la puntuación global.
+  </div>
+  {% endif %}
+
+  {% if comparacion %}
+  <h2>Comparativa</h2>
+  <table class="comparacion-table">
+    <tr><th>Factor</th><th>{{ report.address.raw }}</th><th>{{ comparacion.address.raw }}</th></tr>
+    <tr><td><strong>Puntuación global</strong></td><td><strong>{{ "%.1f"|format(report.score_global) }}</strong></td><td><strong>{{ "%.1f"|format(comparacion.score_global) }}</strong></td></tr>
+    {% for f in factores %}
+    {% set f2 = comparacion.get_factor(f.factor_id) %}
+    <tr>
+      <td>{{ factor_nombres.get(f.factor_id, f.factor_id) }}</td>
+      <td>{{ "%.1f"|format(f.score) }}</td>
+      <td>{{ "%.1f"|format(f2.score) if f2 else "—" }}</td>
+    </tr>
+    {% endfor %}
+  </table>
+  {% endif %}
+
+  <footer>
+    <div>PisoCheck analiza datos públicos y, en varios factores, usa aproximaciones/proxies cuando no existe una fuente oficial directa (lo indica cada tarjeta). No sustituye una visita ni asesoramiento profesional.</div>
+    <div class="fuentes">Fuentes: {{ fuentes|join(" · ") }}</div>
+  </footer>
+
+</div>
+</body>
+</html>
