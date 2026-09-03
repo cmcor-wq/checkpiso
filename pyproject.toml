@@ -26,6 +26,12 @@ dev = [
 [project.scripts]
 pisocheck = "pisocheck.main:main"
 
+# Vercel exige un único punto de entrada Python por proyecto cuando detecta
+# pyproject.toml en la raíz — ver api/index.py (que reúne ahí el análisis
+# real y el diagnóstico, antes en dos archivos separados).
+[tool.vercel]
+entrypoint = "api.index:handler"
+
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]

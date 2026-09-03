@@ -114,15 +114,17 @@ Este sandbox no tiene salida a internet a los dominios que usa PisoCheck
 lanzar quien tenga acceso normal a internet — una vez desplegado, el
 código corre en la infraestructura de Vercel, que sí tiene salida real.
 
-Dos endpoints en `api/`:
-- **`api/analizar.py`** — el análisis real. `GET /api/analizar?direccion=Carrer+del+Garb%C3%AD+24%2C+Torrent`
-  devuelve el informe HTML completo, generado con datos reales. Admite
-  `&vs=` para comparar con una segunda dirección. Esto es tanto la forma
-  de validar el proyecto con red real como una manera de usarlo sin
-  instalar Python en local.
-- **`api/smoke.py`** — diagnóstico (mismo chequeo que `scripts/smoke_test.py`),
-  útil si algo falla en `analizar.py` y hay que ver qué fuente concreta
-  está devolviendo algo inesperado.
+Un único punto de entrada, **`api/index.py`** — Vercel exige exactamente
+uno por proyecto en cuanto detecta `pyproject.toml` en la raíz (ver
+`[tool.vercel]` ahí dentro), así que el análisis real y el diagnóstico
+comparten el mismo `handler`, distinguidos por `?modo=`:
+
+- `GET /api/index?direccion=Carrer+del+Garb%C3%AD+24%2C+Torrent` — el
+  análisis real: pipeline completo, informe HTML con datos reales.
+  Admite `&vs=Otra+direccion` para comparar dos pisos.
+- `GET /api/index?modo=smoke` — diagnóstico (JSON): geocoder/catastro/osm/
+  opendata_vlc contra Garbí 24 y Burjassot 71, comparado con el ground
+  truth conocido. Útil si el modo normal da un error raro.
 
 ```bash
 npm install -g vercel   # o usa npx vercel
@@ -130,17 +132,18 @@ vercel login            # login normal en el navegador, sin pegar tokens en ning
 vercel --prod
 ```
 
-Cuando termine el deploy, entra a `https://<tu-proyecto>.vercel.app/api/analizar?direccion=Carrer+del+Garb%C3%AD+24%2C+Torrent`
+Cuando termine el deploy, entra a `https://<tu-proyecto>.vercel.app/api/index?direccion=Carrer+del+Garb%C3%AD+24%2C+Torrent`
 — deberías ver el informe. Si algo no cuadra con lo que ya sabemos de esa
 vivienda (§2, ground truth), pégame la URL o el HTML resultante y ajusto
 el parser que esté fallando.
 
 ⚠️ Sin caché ni límite de peticiones — cada carga repite todas las
 llamadas a APIs externas, así que puede tardar unos segundos (`maxDuration`
-en `vercel.json` está puesto a 30s; si tu plan de Vercel no lo permite o
-Overpass va lento, puede dar timeout — es esperable en esta fase, no un
-bug del código). Si vas a dejarlo público un tiempo, ten en cuenta que
-cualquiera con la URL puede usarlo y consumir tus cuotas de las APIs.
+en `vercel.json` está en 10s, compatible con el plan gratuito; si Overpass
+va lento y da timeout, es esperable en esta fase, no un bug del código —
+subir el límite requiere plan de pago). Si vas a dejarlo público un
+tiempo, ten en cuenta que cualquiera con la URL puede usarlo y consumir
+tus cuotas de las APIs.
 
 ## Desarrollo
 

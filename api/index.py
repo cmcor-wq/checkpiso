@@ -1,32 +1,66 @@
-"""Endpoint temporal de validación en vivo para desplegar en Vercel.
+"""Único punto de entrada Python para Vercel.
 
-No es parte de la arquitectura final de PisoCheck (que sigue siendo CLI,
-ver spec §11) — es solo el arnés para probar geocoder/catastro/osm/
-opendata_vlc contra las APIs reales desde un sitio con salida a internet,
-ya que el sandbox donde se escribió el resto del proyecto la tiene
-bloqueada por política de organización.
+Vercel, al detectar `pyproject.toml` en la raíz, exige un solo entrypoint
+por proyecto (ver `[tool.vercel]` en pyproject.toml) — por eso los dos
+endpoints que antes eran archivos separados (api/analizar.py, api/smoke.py)
+viven ahora en el mismo `handler`, distinguidos por `?modo=`.
 
-GET /api/smoke -> JSON con los resultados para Garbí 24 y Av. Burjassot 71,
-comparados contra el ground truth conocido (ver tests/fixtures/ground_truth.py).
+GET /api/index?direccion=Carrer+del+Garb%C3%AD+24%2C+Torrent
+    -> informe HTML real (pipeline completo: main.analizar_direccion).
+    Admite &vs=Otra+direccion para comparar dos pisos.
 
-Recomendado borrar este endpoint (o el proyecto de Vercel) una vez validado,
-es público y sin autenticación.
+GET /api/index?modo=smoke
+    -> JSON de diagnóstico: geocoder/catastro/osm/opendata_vlc contra
+    Garbí 24 y Av. Burjassot 71, comparado con el ground truth conocido.
+    Útil si /api/index sin modo da un error raro y hay que ver qué fuente
+    concreta está fallando.
+
+⚠️ Sin caché ni límite de peticiones — cada llamada repite todas las
+consultas a APIs externas. Pensado para uso puntual/de validación, no
+para tráfico real todavía (falta cache.py, sesión pendiente). Ninguno de
+los dos modos tiene autenticación: quien tenga la URL puede usarlo.
 """
 
 from __future__ import annotations
 
 import asyncio
+import html
 import json
 import os
 import sys
 from http.server import BaseHTTPRequestHandler
+from urllib.parse import parse_qs, urlparse
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from pisocheck.geocoder import geocode
+from pisocheck.main import analizar_direccion
+from pisocheck.reports.html_report import render_html
 from pisocheck.sources import catastro, opendata_vlc, osm
 
-CASOS = [
+_ERROR_PAGE = """<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><title>PisoCheck — error</title></head>
+<body style="font-family: sans-serif; max-width: 640px; margin: 60px auto; color: #0f172a;">
+<h1>{titulo}</h1>
+<p>{mensaje}</p>
+<p style="color:#64748b; font-size:0.9rem;">
+Ejemplo: <code>/api/index?direccion=Carrer+del+Garb%C3%AD+24%2C+Torrent</code><br>
+Diagnóstico: <code>/api/index?modo=smoke</code>
+</p>
+</body></html>"""
+
+# --- modo "analizar" -------------------------------------------------------
+
+
+async def _analizar_html(direccion: str, direccion_vs: str | None) -> str:
+    report = await analizar_direccion(direccion)
+    comparacion = await analizar_direccion(direccion_vs) if direccion_vs else None
+    return render_html(report, comparacion=comparacion)
+
+
+# --- modo "smoke" (diagnóstico) --------------------------------------------
+
+_CASOS_SMOKE = [
     {
         "nombre": "Garbí 24, Torrent",
         "direccion": "Carrer del Garbí 24, 2, Torrent",
@@ -60,7 +94,7 @@ CASOS = [
 ]
 
 
-async def probar_caso(caso: dict) -> dict:
+async def _probar_caso_smoke(caso: dict) -> dict:
     resultado: dict = {"nombre": caso["nombre"], "checks": []}
     esperado = caso["esperado"]
     addr = None
@@ -133,25 +167,62 @@ async def probar_caso(caso: dict) -> dict:
     return resultado
 
 
-async def run_all() -> list[dict]:
-    return [await probar_caso(caso) for caso in CASOS]
+async def _run_smoke() -> list[dict]:
+    return [await _probar_caso_smoke(caso) for caso in _CASOS_SMOKE]
+
+
+# --- routing -----------------------------------------------------------
 
 
 class handler(BaseHTTPRequestHandler):
     def do_GET(self) -> None:
+        query = parse_qs(urlparse(self.path).query)
+        modo = (query.get("modo") or [None])[0]
+
+        if modo == "smoke":
+            self._modo_smoke()
+            return
+
+        direccion = (query.get("direccion") or [None])[0]
+        if not direccion:
+            self._responder_html(
+                400,
+                _ERROR_PAGE.format(
+                    titulo="Falta el parámetro 'direccion'",
+                    mensaje="Añade ?direccion=... a la URL con la dirección a analizar "
+                    "(o usa ?modo=smoke para el diagnóstico).",
+                ),
+            )
+            return
+
+        direccion_vs = (query.get("vs") or [None])[0]
         try:
-            resultados = asyncio.run(run_all())
-            body = json.dumps(
-                {"ok": True, "resultados": resultados}, ensure_ascii=False, indent=2
-            ).encode("utf-8")
+            html_out = asyncio.run(_analizar_html(direccion, direccion_vs))
+            self._responder_html(200, html_out)
+        except Exception as e:  # noqa: BLE001 — cualquier fallo debe dar una página legible
+            self._responder_html(
+                502,
+                _ERROR_PAGE.format(
+                    titulo="No se pudo completar el análisis",
+                    mensaje=f"{html.escape(type(e).__name__)}: {html.escape(str(e))}",
+                ),
+            )
+
+    def _modo_smoke(self) -> None:
+        try:
+            resultados = asyncio.run(_run_smoke())
+            body = json.dumps({"ok": True, "resultados": resultados}, ensure_ascii=False, indent=2)
             status = 200
         except Exception as e:  # noqa: BLE001
-            body = json.dumps(
-                {"ok": False, "error": f"{type(e).__name__}: {e}"}, ensure_ascii=False
-            ).encode("utf-8")
+            body = json.dumps({"ok": False, "error": f"{type(e).__name__}: {e}"}, ensure_ascii=False)
             status = 500
+        self._responder(status, body.encode("utf-8"), "application/json; charset=utf-8")
 
+    def _responder_html(self, status: int, body_html: str) -> None:
+        self._responder(status, body_html.encode("utf-8"), "text/html; charset=utf-8")
+
+    def _responder(self, status: int, body: bytes, content_type: str) -> None:
         self.send_response(status)
-        self.send_header("Content-Type", "application/json; charset=utf-8")
+        self.send_header("Content-Type", content_type)
         self.end_headers()
         self.wfile.write(body)
